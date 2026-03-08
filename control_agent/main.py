@@ -27,6 +27,7 @@ DT_PIN = int(os.environ.get("CONTROL_AGENT_DT_PIN", "27"))
 SW_PIN = int(os.environ.get("CONTROL_AGENT_SW_PIN", "22"))
 POLL_INTERVAL_S = float(os.environ.get("CONTROL_AGENT_POLL_INTERVAL_S", "0.0005"))
 BUTTON_DEBOUNCE_S = float(os.environ.get("CONTROL_AGENT_BUTTON_DEBOUNCE_S", "0.2"))
+ROTATION_STEPS_PER_NOTCH = max(1, int(os.environ.get("CONTROL_AGENT_ROTATION_STEPS_PER_NOTCH", "4")))
 
 TRANSITION_TABLE = {
 	0b0001: -1,
@@ -85,6 +86,7 @@ class GpioEncoder:
 		self.thread: threading.Thread | None = None
 		self.last_state = 0
 		self.counter = 0
+		self.pending_rotation = 0
 		self.last_button_time = 0.0
 		self.started = False
 
@@ -153,13 +155,18 @@ class GpioEncoder:
 
 			direction = TRANSITION_TABLE.get(transition)
 			if direction is not None:
-				self.counter += direction
-				LOGGER.info(
-					"Rotated %s (%s)",
-					"clockwise" if direction == 1 else "counterclockwise",
-					self.counter,
-				)
-				self._broadcast_from_thread({"type": "rotate", "delta": direction})
+				self.pending_rotation += direction
+
+				if abs(self.pending_rotation) >= ROTATION_STEPS_PER_NOTCH:
+					emitted_direction = 1 if self.pending_rotation > 0 else -1
+					self.pending_rotation = 0
+					self.counter += emitted_direction
+					LOGGER.info(
+						"Rotated %s notch (%s)",
+						"clockwise" if emitted_direction == 1 else "counterclockwise",
+						self.counter,
+					)
+					self._broadcast_from_thread({"type": "rotate", "delta": emitted_direction})
 
 			self.last_state = state
 			self.stop_event.wait(POLL_INTERVAL_S)

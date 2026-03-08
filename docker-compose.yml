@@ -4,6 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: deskpanel
+    privileged: true
     restart: unless-stopped
     ports:
       - "4173:4173"
@@ -16,6 +17,4 @@ services:
       CONTROL_AGENT_CLK_PIN: 17
       CONTROL_AGENT_DT_PIN: 27
       CONTROL_AGENT_SW_PIN: 22
-    devices:
-      - /dev/gpiomem:/dev/gpiomem
-      - /dev/gpiochip0:/dev/gpiochip0
+      CONTROL_AGENT_ROTATION_STEPS_PER_NOTCH: 4

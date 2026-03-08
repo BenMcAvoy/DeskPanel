@@ -207,9 +207,11 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
     if (code) {
-      window.history.replaceState({}, "", "/");
       exchangeCode(code)
-        .then(() => setAuthState("authenticated"))
+        .then(() => {
+          window.history.replaceState({}, "", `${window.location.pathname}${window.location.hash}`);
+          setAuthState("authenticated");
+        })
         .catch(() => setAuthState("unauthenticated"));
     } else if (!isLoggedIn()) {
       setAuthState("unauthenticated");

@@ -6,6 +6,7 @@ const SPOTIFY_ACCESS_TOKEN_KEY = "sp_at";
 const SPOTIFY_REFRESH_TOKEN_KEY = "sp_rt";
 const SPOTIFY_EXPIRY_KEY = "sp_exp";
 const SPOTIFY_CODE_VERIFIER_KEY = "spotify_cv";
+const SPOTIFY_AUTH_PENDING_KEY = "spotify_auth_pending";
 
 function isLoopbackHost(hostname: string): boolean {
   return hostname === "127.0.0.1" || hostname === "localhost";
@@ -13,16 +14,25 @@ function isLoopbackHost(hostname: string): boolean {
 
 function getRedirectUri(): string {
   if (!CONFIGURED_REDIRECT_URI) {
-    return window.location.origin;
+    const current = new URL(window.location.href);
+    current.search = "";
+    current.hash = "";
+    return current.toString();
   }
 
   try {
     const configured = new URL(CONFIGURED_REDIRECT_URI);
-    const current = new URL(window.location.origin);
+    const current = new URL(window.location.href);
+    current.search = "";
+    current.hash = "";
 
     if (isLoopbackHost(configured.hostname) && isLoopbackHost(current.hostname)) {
       configured.protocol = current.protocol;
+      configured.hostname = current.hostname;
       configured.port = current.port;
+      configured.pathname = current.pathname;
+      configured.search = "";
+      configured.hash = "";
       return configured.toString();
     }
   } catch {
@@ -39,6 +49,20 @@ const SCOPES = [
   "user-modify-playback-state",
   "user-read-currently-playing",
 ].join(" ");
+
+function setStoredValue(key: string, value: string): void {
+  localStorage.setItem(key, value);
+  sessionStorage.setItem(key, value);
+}
+
+function getStoredValue(key: string): string {
+  return localStorage.getItem(key) ?? sessionStorage.getItem(key) ?? "";
+}
+
+function clearStoredValue(key: string): void {
+  localStorage.removeItem(key);
+  sessionStorage.removeItem(key);
+}
 
 async function generateVerifier(): Promise<string> {
   const buf = new Uint8Array(32);
@@ -61,7 +85,8 @@ async function deriveChallenge(verifier: string): Promise<string> {
 export async function initiateLogin(): Promise<void> {
   const verifier = await generateVerifier();
   const challenge = await deriveChallenge(verifier);
-  localStorage.setItem(SPOTIFY_CODE_VERIFIER_KEY, verifier);
+  setStoredValue(SPOTIFY_CODE_VERIFIER_KEY, verifier);
+  setStoredValue(SPOTIFY_AUTH_PENDING_KEY, "1");
 
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
@@ -76,7 +101,7 @@ export async function initiateLogin(): Promise<void> {
 }
 
 export async function exchangeCode(code: string): Promise<void> {
-  const verifier = localStorage.getItem(SPOTIFY_CODE_VERIFIER_KEY) ?? "";
+  const verifier = getStoredValue(SPOTIFY_CODE_VERIFIER_KEY);
   if (!verifier) throw new Error("Missing Spotify PKCE verifier");
 
   const res = await fetch("https://accounts.spotify.com/api/token", {
@@ -92,7 +117,8 @@ export async function exchangeCode(code: string): Promise<void> {
   });
   if (!res.ok) throw new Error("Token exchange failed");
   storeTokens(await res.json());
-  localStorage.removeItem(SPOTIFY_CODE_VERIFIER_KEY);
+  clearStoredValue(SPOTIFY_CODE_VERIFIER_KEY);
+  clearStoredValue(SPOTIFY_AUTH_PENDING_KEY);
 }
 
 interface TokenResponse {
@@ -102,21 +128,21 @@ interface TokenResponse {
 }
 
 function getStoredRefreshToken(): string {
-  const refreshToken = localStorage.getItem(SPOTIFY_REFRESH_TOKEN_KEY) ?? "";
+  const refreshToken = getStoredValue(SPOTIFY_REFRESH_TOKEN_KEY);
   return refreshToken === "undefined" || refreshToken === "null" ? "" : refreshToken;
 }
 
 function storeTokens(t: TokenResponse) {
-  localStorage.setItem(SPOTIFY_ACCESS_TOKEN_KEY, t.access_token);
+  setStoredValue(SPOTIFY_ACCESS_TOKEN_KEY, t.access_token);
 
   const refreshToken = t.refresh_token?.trim() || getStoredRefreshToken();
   if (refreshToken) {
-    localStorage.setItem(SPOTIFY_REFRESH_TOKEN_KEY, refreshToken);
+    setStoredValue(SPOTIFY_REFRESH_TOKEN_KEY, refreshToken);
   } else {
-    localStorage.removeItem(SPOTIFY_REFRESH_TOKEN_KEY);
+    clearStoredValue(SPOTIFY_REFRESH_TOKEN_KEY);
   }
 
-  localStorage.setItem(SPOTIFY_EXPIRY_KEY, String(Date.now() + t.expires_in * 1_000));
+  setStoredValue(SPOTIFY_EXPIRY_KEY, String(Date.now() + t.expires_in * 1_000));
 }
 
 async function refreshTokens(): Promise<string> {
@@ -139,8 +165,8 @@ async function refreshTokens(): Promise<string> {
 }
 
 async function getAccessToken(): Promise<string> {
-  const accessToken = localStorage.getItem(SPOTIFY_ACCESS_TOKEN_KEY) ?? "";
-  const exp = Number(localStorage.getItem(SPOTIFY_EXPIRY_KEY) ?? 0);
+  const accessToken = getStoredValue(SPOTIFY_ACCESS_TOKEN_KEY);
+  const exp = Number(getStoredValue(SPOTIFY_EXPIRY_KEY) ?? 0);
 
   if (!accessToken) {
     return refreshTokens();
@@ -154,7 +180,7 @@ async function getAccessToken(): Promise<string> {
 }
 
 export function isLoggedIn(): boolean {
-  return !!(localStorage.getItem(SPOTIFY_ACCESS_TOKEN_KEY) || getStoredRefreshToken());
+  return !!(getStoredValue(SPOTIFY_ACCESS_TOKEN_KEY) || getStoredRefreshToken());
 }
 
 export async function restoreSession(): Promise<boolean> {
@@ -170,8 +196,13 @@ export async function restoreSession(): Promise<boolean> {
 }
 
 export function logout(): void {
-  [SPOTIFY_ACCESS_TOKEN_KEY, SPOTIFY_REFRESH_TOKEN_KEY, SPOTIFY_EXPIRY_KEY, SPOTIFY_CODE_VERIFIER_KEY]
-    .forEach((key) => localStorage.removeItem(key));
+  [
+    SPOTIFY_ACCESS_TOKEN_KEY,
+    SPOTIFY_REFRESH_TOKEN_KEY,
+    SPOTIFY_EXPIRY_KEY,
+    SPOTIFY_CODE_VERIFIER_KEY,
+    SPOTIFY_AUTH_PENDING_KEY,
+  ].forEach(clearStoredValue);
 }
 
 async function api(path: string, init: RequestInit = {}): Promise<Response> {

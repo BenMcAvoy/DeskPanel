@@ -69,6 +69,7 @@ function getHeaders(): HeadersInit {
   return {
     Authorization: `Bearer ${HOME_ASSISTANT_TOKEN}`,
     "Content-Type": "application/json",
+    "X-Home-Assistant-Url": HOME_ASSISTANT_URL,
   };
 }
 
@@ -77,9 +78,7 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new Error("Home Assistant credentials are not configured");
   }
 
-  const baseUrl = import.meta.env.DEV ? HOME_ASSISTANT_PROXY_BASE : HOME_ASSISTANT_URL;
-
-  const response = await fetch(`${baseUrl}${path}`, {
+  const response = await fetch(`${HOME_ASSISTANT_PROXY_BASE}${path}`, {
     ...init,
     headers: {
       ...getHeaders(),
