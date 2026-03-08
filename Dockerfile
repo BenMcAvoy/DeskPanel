@@ -22,7 +22,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir "websockets>=16.0"
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends build-essential swig wget unzip libgpiod-dev \
+    && wget -q https://abyz.me.uk/lg/lg.zip -O /tmp/lg.zip \
+    && unzip -q /tmp/lg.zip -d /tmp \
+    && make -C /tmp/lg \
+    && make -C /tmp/lg install \
+    && ldconfig \
+    && rm -rf /tmp/lg /tmp/lg.zip \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir "websockets>=16.0" "rpi-lgpio>=0.6"
 
 COPY control_agent/ /app/control_agent/
 COPY control_frontend/serve_dist.py /app/control_frontend/serve_dist.py

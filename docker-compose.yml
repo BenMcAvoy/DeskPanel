@@ -1,0 +1,21 @@
+services:
+  deskpanel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: deskpanel
+    restart: unless-stopped
+    ports:
+      - "4173:4173"
+      - "6789:6789"
+    environment:
+      CONTROL_AGENT_HOST: 0.0.0.0
+      CONTROL_AGENT_PORT: 6789
+      FRONTEND_HOST: 0.0.0.0
+      FRONTEND_PORT: 4173
+      CONTROL_AGENT_CLK_PIN: 17
+      CONTROL_AGENT_DT_PIN: 27
+      CONTROL_AGENT_SW_PIN: 22
+    devices:
+      - /dev/gpiomem:/dev/gpiomem
+      - /dev/gpiochip0:/dev/gpiochip0
