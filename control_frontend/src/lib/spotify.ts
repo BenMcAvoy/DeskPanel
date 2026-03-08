@@ -1,7 +1,34 @@
 // https://developer.spotify.com/documentation/web-api/tutorials/code-pkce-flow
 
 const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID as string;
-const REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI as string;
+const CONFIGURED_REDIRECT_URI = (import.meta.env.VITE_SPOTIFY_REDIRECT_URI as string | undefined)?.trim() ?? "";
+
+function isLoopbackHost(hostname: string): boolean {
+  return hostname === "127.0.0.1" || hostname === "localhost";
+}
+
+function getRedirectUri(): string {
+  if (!CONFIGURED_REDIRECT_URI) {
+    return window.location.origin;
+  }
+
+  try {
+    const configured = new URL(CONFIGURED_REDIRECT_URI);
+    const current = new URL(window.location.origin);
+
+    if (isLoopbackHost(configured.hostname) && isLoopbackHost(current.hostname)) {
+      configured.protocol = current.protocol;
+      configured.port = current.port;
+      return configured.toString();
+    }
+  } catch {
+    return CONFIGURED_REDIRECT_URI;
+  }
+
+  return CONFIGURED_REDIRECT_URI;
+}
+
+const REDIRECT_URI = getRedirectUri();
 
 const SCOPES = [
   "user-read-playback-state",

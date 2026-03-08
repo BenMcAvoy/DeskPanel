@@ -30,7 +30,8 @@ import {
   type HomeAssistantDeviceConfig,
 } from "./lib/homeAssistant";
 
-const WS_URL = "ws://localhost:6789";
+const WS_URL = import.meta.env.VITE_ROTARY_WS_URL
+  ?? `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:6789`;
 const VOLUME_STEP = 2;
 const SEEK_STEP_MS = 5_000;
 const VOLUME_COMMIT_MS = 160;
@@ -259,7 +260,7 @@ export default function App() {
   const [lyricsLoading, setLyricsLoading] = useState(false);
   const [homeConfig, setHomeConfig] = useState<HomeAssistantPanelConfig>({ devices: [], todoLists: [] });
   const [homeConfigLoading, setHomeConfigLoading] = useState(true);
-  const [homeLoading, setHomeLoading] = useState(false);
+  const [, setHomeLoading] = useState(false);
   const [homeError, setHomeError] = useState<string | null>(null);
   const [homeDeviceStates, setHomeDeviceStates] = useState<Record<string, HomeAssistantEntityState>>({});
   const [homeTodoItems, setHomeTodoItems] = useState<Record<string, HomeAssistantTodoItem[]>>({});
@@ -339,7 +340,7 @@ export default function App() {
       const [states, todoEntries] = await Promise.all([
         config.devices.length > 0
           ? getHomeAssistantStates(config.devices.map((device) => device.entityId))
-          : Promise.resolve({}),
+          : Promise.resolve({} as Record<string, HomeAssistantEntityState>),
         Promise.all(config.todoLists.map(async (list) => [list.entityId, await getHomeAssistantTodoItems(list.entityId)] as const)),
       ]);
 
@@ -714,11 +715,6 @@ export default function App() {
       return;
     }
 
-    if (focusedTarget.kind === "home-refresh") {
-      reloadHomePanel().catch(() => {});
-      return;
-    }
-
     if (focusedTarget.kind === "home-device") {
       toggleDevice(focusedTarget.entityId).catch(() => {});
       return;
@@ -857,8 +853,6 @@ export default function App() {
     ? "Volume"
     : focusedTarget.kind === "spotify-control"
     ? "Transport"
-    : focusedTarget.kind === "home-refresh"
-    ? "Refresh"
     : focusedTarget.kind === "home-device"
     ? "Device"
     : focusedTarget.kind === "home-brightness" && homeBrightnessEditingId === focusedTarget.entityId
@@ -881,8 +875,6 @@ export default function App() {
     ? "Press to adjust volume."
     : focusedTarget.kind === "spotify-control"
     ? "Rotate to choose a control. Press to activate it."
-    : focusedTarget.kind === "home-refresh"
-    ? "Press to reload Home Assistant devices and lists."
     : focusedTarget.kind === "home-device"
     ? "Press to toggle this device."
     : focusedTarget.kind === "home-brightness" && homeBrightnessEditingId === focusedTarget.entityId
