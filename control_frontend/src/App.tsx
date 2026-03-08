@@ -4,6 +4,7 @@ import "./App.css";
 import { RotaryEncoder, type RotaryEvent } from "./lib/RotaryEncoder";
 import {
   isLoggedIn,
+  restoreSession,
   initiateLogin,
   exchangeCode,
   getPlaybackState,
@@ -401,7 +402,14 @@ export default function App() {
         .then(() => setAuthState("authenticated"))
         .catch(() => setAuthState("unauthenticated"));
     } else {
-      setAuthState(isLoggedIn() ? "authenticated" : "unauthenticated");
+      if (!isLoggedIn()) {
+        setAuthState("unauthenticated");
+        return;
+      }
+
+      restoreSession()
+        .then((authenticated) => setAuthState(authenticated ? "authenticated" : "unauthenticated"))
+        .catch(() => setAuthState("unauthenticated"));
     }
   }, []);
 
