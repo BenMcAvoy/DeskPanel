@@ -1,0 +1,15 @@
+{
+  "devices": [
+    {
+      "entityId": "light.wiz_rgbw_tunable_4f595a",
+      "label": "Bedroom light",
+      "icon": "light"
+    }
+  ],
+  "todoLists": [
+    {
+      "entityId": "todo.todo",
+      "label": "Todo list"
+    }
+  ]
+}
