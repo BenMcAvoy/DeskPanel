@@ -14,8 +14,8 @@ Frontend integration settings are listed in [`control_frontend/.env.example`](co
 
 ## Project layout
 
-- `control_frontend/` — React and TypeScript interface.
-- `control_agent/` — Python rotary encoder service.
-- `docker-compose.yml` and `Dockerfile` — container setup.
+- `control_frontend/` - React and TypeScript interface.
+- `control_agent/` - Python rotary encoder service.
+- `docker-compose.yml` and `Dockerfile` - container setup.
 
 This is a hardware-focused personal project and the GPIO defaults may need adjusting for your wiring.
